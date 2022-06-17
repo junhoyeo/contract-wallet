@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract ContractWallet {
     address public owner;
 
+    event Received(address, uint256);
     event ExecutedTransaction(
         address _destination,
         uint256 _value,
@@ -20,6 +21,15 @@ contract ContractWallet {
     function balanceOf(address _token) public view returns (uint256) {
         ERC20 token = ERC20(_token);
         return token.balanceOf(owner);
+    }
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    function transfer(uint256 _amount) public {
+        require(msg.sender == owner, "Sender is not owner");
+        transfer(msg.sender, _amount);
     }
 
     function transfer(address _token, uint256 _amount) public {

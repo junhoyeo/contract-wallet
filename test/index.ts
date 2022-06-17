@@ -37,6 +37,23 @@ describe("Contract Wallet", function () {
     contractWallet = await ContractWallet.connect(owner).deploy();
   });
 
+  it("Users can receive and transfer ether", async () => {
+    const balanceBefore = await ethers.provider.getBalance(
+      contractWallet.address
+    );
+    expect(balanceBefore).equal(0);
+
+    await owner.sendTransaction({
+      to: contractWallet.address,
+      value: ethers.utils.parseEther("1.0007"),
+    });
+
+    const balanceAfter = await ethers.provider.getBalance(
+      contractWallet.address
+    );
+    expect(balanceAfter).equal(ethers.utils.parseEther("1.0007"));
+  });
+
   it("Users can receive and transfer ERC20 tokens", async () => {
     await tokenA
       .connect(owner)
@@ -64,7 +81,10 @@ describe("Contract Wallet", function () {
     // send 5 TKNA to owner and expect both balances
     await contractWallet
       .connect(owner)
-      .transfer(tokenA.address, ethers.utils.parseEther("5"));
+      ["transfer(address,uint256)"](
+        tokenA.address,
+        ethers.utils.parseEther("5")
+      );
 
     expect(await tokenA.balanceOf(owner.address)).equal(
       ethers.utils.parseEther("95")
