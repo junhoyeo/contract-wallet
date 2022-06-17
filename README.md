@@ -38,7 +38,7 @@ const populatedTx = await tokenA.populateTransaction.transfer(
   ethers.utils.parseEther("5.0045")
 );
 
-const executionTransaction = await contractWallet
+await contractWallet
   .connect(owner)
   .execute(tokenA.address, populatedTx.value ?? 0, populatedTx.data ?? "");
 ```
