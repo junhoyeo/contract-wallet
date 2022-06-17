@@ -64,5 +64,28 @@ describe("Tokens", function () {
     expect(await tokenA.balanceOf(contractWallet.address)).equal(
       ethers.utils.parseEther("5")
     );
+
+    // execute transaction using low level calls
+    const populatedTx = await tokenA.populateTransaction.transfer(
+      owner.address,
+      ethers.utils.parseEther("5")
+    );
+    console.log(populatedTx.value, populatedTx.data);
+
+    const executionTransaction = await contractWallet
+      .connect(owner)
+      .execute(tokenA.address, populatedTx.value ?? 0, populatedTx.data ?? "");
+
+    const executedTransactionEvent = (
+      await executionTransaction.wait()
+    ).events?.find((e) => e.event === "ExecutedTransaction");
+    console.log(executedTransactionEvent);
+
+    expect(await tokenA.balanceOf(owner.address)).equal(
+      ethers.utils.parseEther("100")
+    );
+    expect(await tokenA.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("0")
+    );
   });
 });
