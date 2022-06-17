@@ -7,15 +7,15 @@ import { ContractWallet, ERC20 } from "../typechain";
 
 describe("Contract Wallet", function () {
   let owner: SignerWithAddress;
-  let person: Wallet;
-  let tokenA: ERC20, tokenB: ERC20;
+  let recipient: Wallet;
+  let tokenA: ERC20, tokenB: ERC20, tokenC: ERC20;
   let contractWallet: ContractWallet;
 
   this.beforeAll(async () => {
     [owner] = await ethers.getSigners();
 
     const privateKey = ethers.Wallet.createRandom();
-    person = new ethers.Wallet(privateKey, ethers.provider);
+    recipient = new ethers.Wallet(privateKey, ethers.provider);
 
     const ERC20TokenFactory = await ethers.getContractFactory(
       "ERC20TokenFactory"
@@ -39,6 +39,14 @@ describe("Contract Wallet", function () {
     )?.args?.tokenAddress;
     tokenB = await ethers.getContractAt("ERC20", tokenBAddress, owner);
 
+    const tokenCCreation = await tokenFactory
+      .connect(owner)
+      .deployNewERC20Token("Token C", "TKNC", 18, 100);
+    const tokenCAddress = (await tokenCCreation.wait()).events?.find(
+      (e) => e.event === "ERC20TokenCreated"
+    )?.args?.tokenAddress;
+    tokenC = await ethers.getContractAt("ERC20", tokenCAddress, owner);
+
     const ContractWallet = await ethers.getContractFactory("ContractWallet");
     contractWallet = await ContractWallet.connect(owner).deploy();
   });
@@ -60,12 +68,12 @@ describe("Contract Wallet", function () {
     expect(balanceAfter).equal(ethers.utils.parseEther("1.0007"));
 
     // can transfer ether to another address
-    expect(await ethers.provider.getBalance(person.address)).equal(0);
+    expect(await ethers.provider.getBalance(recipient.address)).equal(0);
 
     await contractWallet
       .connect(owner)
       ["transfer(address,uint256)"](
-        person.address,
+        recipient.address,
         ethers.utils.parseEther("0.0001")
       );
 
@@ -74,7 +82,7 @@ describe("Contract Wallet", function () {
     );
     expect(balanceAfterTransfer).equal(ethers.utils.parseEther("1.0006"));
 
-    expect(await ethers.provider.getBalance(person.address)).equal(
+    expect(await ethers.provider.getBalance(recipient.address)).equal(
       ethers.utils.parseEther("0.0001")
     );
   });
@@ -118,28 +126,55 @@ describe("Contract Wallet", function () {
     expect(await tokenA.balanceOf(contractWallet.address)).equal(
       ethers.utils.parseEther("5")
     );
+
+    // send external recipient and expect both balances
+    console.log(await tokenA.balanceOf(contractWallet.address));
+    await contractWallet
+      .connect(owner)
+      ["transfer(address,address,uint256)"](
+        recipient.address,
+        tokenA.address,
+        ethers.utils.parseEther("5")
+      );
+
+    expect(await tokenA.balanceOf(recipient.address)).equal(
+      ethers.utils.parseEther("5")
+    );
+    expect(await tokenA.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("0")
+    );
   });
 
   it("Users can execute transactions", async () => {
-    const populatedTx = await tokenA.populateTransaction.transfer(
-      owner.address,
-      ethers.utils.parseEther("5")
+    // given
+    await tokenC
+      .connect(owner)
+      .transfer(contractWallet.address, ethers.utils.parseEther("10"));
+    expect(await tokenC.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("10")
+    );
+
+    // when
+    const populatedTx = await tokenC.populateTransaction.transfer(
+      recipient.address,
+      ethers.utils.parseEther("5.0045")
     );
 
     const executionTransaction = await contractWallet
       .connect(owner)
-      .execute(tokenA.address, populatedTx.value ?? 0, populatedTx.data ?? "");
+      .execute(tokenC.address, populatedTx.value ?? 0, populatedTx.data ?? "");
 
     const executedTransactionEvent = (
       await executionTransaction.wait()
     ).events?.find((e) => e.event === "ExecutedTransaction");
     console.log(executedTransactionEvent);
 
-    expect(await tokenA.balanceOf(owner.address)).equal(
-      ethers.utils.parseEther("100")
+    // then
+    expect(await tokenC.balanceOf(recipient.address)).equal(
+      ethers.utils.parseEther("5.0045")
     );
-    expect(await tokenA.balanceOf(contractWallet.address)).equal(
-      ethers.utils.parseEther("0")
+    expect(await tokenC.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("4.9955")
     );
   });
 });
