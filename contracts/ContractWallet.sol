@@ -27,23 +27,31 @@ contract ContractWallet {
         emit Received(msg.sender, msg.value);
     }
 
-    function transfer(uint256 _amount) public {
+    function transfer(address _recipient, uint256 _amount) public {
         require(msg.sender == owner, "Sender is not owner");
-        transfer(msg.sender, _amount);
+        payable(_recipient).transfer(_amount);
     }
 
-    function transfer(address _token, uint256 _amount) public {
+    function transfer(
+        address _recipient,
+        address _token,
+        uint256 _amount
+    ) public {
         require(msg.sender == owner, "Sender is not owner");
         ERC20 token = ERC20(_token);
-        token.transfer(owner, _amount);
+        token.transfer(_recipient, _amount);
     }
 
-    function _isContract(address _addr) private view returns (bool isContract) {
+    function _isContract(address _address)
+        private
+        view
+        returns (bool isContract)
+    {
         uint32 size;
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            size := extcodesize(_addr)
+            size := extcodesize(_address)
         }
         return (size > 0);
     }

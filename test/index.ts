@@ -1,15 +1,21 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
+import { Wallet } from "ethers";
+
 import { ethers } from "hardhat";
 import { ContractWallet, ERC20 } from "../typechain";
 
 describe("Contract Wallet", function () {
   let owner: SignerWithAddress;
+  let person: Wallet;
   let tokenA: ERC20, tokenB: ERC20;
   let contractWallet: ContractWallet;
 
   this.beforeAll(async () => {
     [owner] = await ethers.getSigners();
+
+    const privateKey = ethers.Wallet.createRandom();
+    person = new ethers.Wallet(privateKey, ethers.provider);
 
     const ERC20TokenFactory = await ethers.getContractFactory(
       "ERC20TokenFactory"
@@ -52,6 +58,25 @@ describe("Contract Wallet", function () {
       contractWallet.address
     );
     expect(balanceAfter).equal(ethers.utils.parseEther("1.0007"));
+
+    // can transfer ether to another address
+    expect(await ethers.provider.getBalance(person.address)).equal(0);
+
+    await contractWallet
+      .connect(owner)
+      ["transfer(address,uint256)"](
+        person.address,
+        ethers.utils.parseEther("0.0001")
+      );
+
+    const balanceAfterTransfer = await ethers.provider.getBalance(
+      contractWallet.address
+    );
+    expect(balanceAfterTransfer).equal(ethers.utils.parseEther("1.0006"));
+
+    expect(await ethers.provider.getBalance(person.address)).equal(
+      ethers.utils.parseEther("0.0001")
+    );
   });
 
   it("Users can receive and transfer ERC20 tokens", async () => {
@@ -81,7 +106,8 @@ describe("Contract Wallet", function () {
     // send 5 TKNA to owner and expect both balances
     await contractWallet
       .connect(owner)
-      ["transfer(address,uint256)"](
+      ["transfer(address,address,uint256)"](
+        owner.address,
         tokenA.address,
         ethers.utils.parseEther("5")
       );
