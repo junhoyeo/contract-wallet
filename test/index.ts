@@ -1,19 +1,68 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("Greeter", function () {
-  it("Should return the new greeting once it's changed", async function () {
-    const Greeter = await ethers.getContractFactory("Greeter");
-    const greeter = await Greeter.deploy("Hello, world!");
-    await greeter.deployed();
+describe("Tokens", function () {
+  it("", async function () {
+    const [owner] = await ethers.getSigners();
 
-    expect(await greeter.greet()).to.equal("Hello, world!");
+    const ERC20TokenFactory = await ethers.getContractFactory(
+      "ERC20TokenFactory"
+    );
+    const tokenFactory = await ERC20TokenFactory.connect(owner).deploy();
+    await tokenFactory.deployed();
 
-    const setGreetingTx = await greeter.setGreeting("Hola, mundo!");
+    const tokenACreation = await tokenFactory
+      .connect(owner)
+      .deployNewERC20Token("Token A", "TKNA", 18, 100);
+    const tokenAAddress = (await tokenACreation.wait()).events?.find(
+      (e) => e.event === "ERC20TokenCreated"
+    )?.args?.tokenAddress;
+    const tokenA = await ethers.getContractAt("ERC20", tokenAAddress, owner);
 
-    // wait until the transaction is mined
-    await setGreetingTx.wait();
+    const tokenBCreation = await tokenFactory
+      .connect(owner)
+      .deployNewERC20Token("Token B", "TKNB", 18, 100);
+    const tokenBAddress = (await tokenBCreation.wait()).events?.find(
+      (e) => e.event === "ERC20TokenCreated"
+    )?.args?.tokenAddress;
+    const tokenB = await ethers.getContractAt("ERC20", tokenBAddress, owner);
 
-    expect(await greeter.greet()).to.equal("Hola, mundo!");
+    const ContractWallet = await ethers.getContractFactory("ContractWallet");
+    const contractWallet = await ContractWallet.connect(owner).deploy();
+
+    await tokenA
+      .connect(owner)
+      .transfer(contractWallet.address, ethers.utils.parseEther("10"));
+    await tokenB
+      .connect(owner)
+      .transfer(contractWallet.address, ethers.utils.parseEther("20"));
+
+    // contract wallet should have 10 TKNA / 20 TKNB
+    expect(await tokenA.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("10")
+    );
+    expect(await tokenB.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("20")
+    );
+
+    // owner should have 90 TKNA / 80 TKNB
+    expect(await tokenA.balanceOf(owner.address)).equal(
+      ethers.utils.parseEther("90")
+    );
+    expect(await tokenB.balanceOf(owner.address)).equal(
+      ethers.utils.parseEther("80")
+    );
+
+    // send 5 TKNA to owner and expect both balances
+    await contractWallet
+      .connect(owner)
+      .transfer(tokenA.address, ethers.utils.parseEther("5"));
+
+    expect(await tokenA.balanceOf(owner.address)).equal(
+      ethers.utils.parseEther("95")
+    );
+    expect(await tokenA.balanceOf(contractWallet.address)).equal(
+      ethers.utils.parseEther("5")
+    );
   });
 });
