@@ -1,9 +1,15 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { ContractWallet, ERC20 } from "../typechain";
 
-describe("Tokens", function () {
-  it("", async function () {
-    const [owner] = await ethers.getSigners();
+describe("Contract Wallet", function () {
+  let owner: SignerWithAddress;
+  let tokenA: ERC20, tokenB: ERC20;
+  let contractWallet: ContractWallet;
+
+  this.beforeAll(async () => {
+    [owner] = await ethers.getSigners();
 
     const ERC20TokenFactory = await ethers.getContractFactory(
       "ERC20TokenFactory"
@@ -17,7 +23,7 @@ describe("Tokens", function () {
     const tokenAAddress = (await tokenACreation.wait()).events?.find(
       (e) => e.event === "ERC20TokenCreated"
     )?.args?.tokenAddress;
-    const tokenA = await ethers.getContractAt("ERC20", tokenAAddress, owner);
+    tokenA = await ethers.getContractAt("ERC20", tokenAAddress, owner);
 
     const tokenBCreation = await tokenFactory
       .connect(owner)
@@ -25,11 +31,13 @@ describe("Tokens", function () {
     const tokenBAddress = (await tokenBCreation.wait()).events?.find(
       (e) => e.event === "ERC20TokenCreated"
     )?.args?.tokenAddress;
-    const tokenB = await ethers.getContractAt("ERC20", tokenBAddress, owner);
+    tokenB = await ethers.getContractAt("ERC20", tokenBAddress, owner);
 
     const ContractWallet = await ethers.getContractFactory("ContractWallet");
-    const contractWallet = await ContractWallet.connect(owner).deploy();
+    contractWallet = await ContractWallet.connect(owner).deploy();
+  });
 
+  it("Users can receive and transfer ERC20 tokens", async () => {
     await tokenA
       .connect(owner)
       .transfer(contractWallet.address, ethers.utils.parseEther("10"));
@@ -64,13 +72,13 @@ describe("Tokens", function () {
     expect(await tokenA.balanceOf(contractWallet.address)).equal(
       ethers.utils.parseEther("5")
     );
+  });
 
-    // execute transaction using low level calls
+  it("Users can execute transactions", async () => {
     const populatedTx = await tokenA.populateTransaction.transfer(
       owner.address,
       ethers.utils.parseEther("5")
     );
-    console.log(populatedTx.value, populatedTx.data);
 
     const executionTransaction = await contractWallet
       .connect(owner)
