@@ -1,6 +1,9 @@
 # Contract Wallet
 
-Basic Implementation of a Contract Wallet in Solidity. The owner can transfer Ether/ERC20 and execute transactions via low-level calls.
+Basic Implementation of a Contract Wallet in Solidity.<br />
+The owner can transfer Ether/ERC20 and execute transactions via low-level calls.
+
+For more detailed usage, please read the [test code](https://github.com/junhoyeo/contract-wallet/blob/main/test/ContractWallet.ts).
 
 ## Transfer
 
